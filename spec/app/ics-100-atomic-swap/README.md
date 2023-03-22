@@ -173,7 +173,7 @@ interface Order {
   completeTimestamp: uint64
 }
 
-function createOrder(msg: MakeSwapMsg, packet: channelType.Packet): Order {
+function createOrder(msg: MakeSwapMsg, channel: channelType.Channel): Order {
     const path = orderPath(packet)
     return Order{
       id : generateOrderId(packet),
@@ -183,14 +183,15 @@ function createOrder(msg: MakeSwapMsg, packet: channelType.Packet): Order {
     }
   }
 
-function orderPath(packet: channelType.Packet): string {
-    return `channel/${packet.sourceChannel}/port/${packet.sourcePort}/channel/${packet.destChannel}/port/${packet.destPort}/sequence/${packet.sequence}`
-
+func orderPath(sourePort string, sourceChannel string, dstPort string, dstChannel string, sequence string) {
+	return `channel/${sourceChannel}/port/${sourcePort}/channel/${dstChannel}/port/${dstPort}/${sequence}`
 }
+
 // Order id is a global unique string, since packet contains sourceChannel, SourcePort, distChannel, distPort, sequence and msg data
-function generateOrderId(packet: channelType.Packet) : string {
-  const bytes = protobuf.encode(packet)
-  return sha265(bytes)
+function generateOrderId(orderpath string, packet AtomicSwapPacketData) : string {
+  const prefex = toBytes(orderPath)
+  const bytes = packet.getBytes()
+  return sha265(prefix + bytes)
 }
 
 function extractSourceChannelForTakerMsg(path: string) : string {
@@ -226,7 +227,7 @@ function extractSourcePortForTakerMsg(path: string) : string{
 The sub-protocols described herein should be implemented in a "Fungible Token Swap" module with access to a bank module and to the IBC routing module.
 
 ```ts
-function makeSwap(request: MakeSwapMsg, packet: channelTypes.Packet) {
+function makeSwap(request: MakeSwapMsg) {
   const balance = bank.getBalances(request.makerAddress, request.sellToken.denom)
   abortTransactionUnless(balance.amount >= request.sellToken.Amount)
   // gets escrow address by source port and source channel
