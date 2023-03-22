@@ -173,10 +173,12 @@ interface Order {
   completeTimestamp: uint64
 }
 
-function createOrder(msg: MakeSwapMsg, channel: channelType.Channel): Order {
-    const path = orderPath(packet)
+function createOrder(msg: MakeSwapMsg): Order {
+    const channel = channelKeeper.getChannel(msg.sourceChannel, msg.sourcePort)
+    const sequence = channelKeeper.GetNextSequenceSend(msg.sourceChannel, msg.sourcePort)
+    const path = orderPath(msg.sourcePort, msg.sourceChannel, channel.counterParty.portId, channel.counterParty.channelId, sequence)
     return Order{
-      id : generateOrderId(packet),
+      id : generateOrderId(path, ),
       status: Status.INITIAL,
       path: path,
       maker: msg,
@@ -188,7 +190,7 @@ func orderPath(sourePort string, sourceChannel string, dstPort string, dstChanne
 }
 
 // Order id is a global unique string, since packet contains sourceChannel, SourcePort, distChannel, distPort, sequence and msg data
-function generateOrderId(orderpath string, packet AtomicSwapPacketData) : string {
+function generateOrderId(orderpath string, packet MakeSwapMsg) : string {
   const prefex = toBytes(orderPath)
   const bytes = packet.getBytes()
   return sha265(prefix + bytes)
@@ -235,6 +237,7 @@ function makeSwap(request: MakeSwapMsg) {
   // locks the sellToken to the escrow account
   const err = bank.sendCoins(request.makerAddress, escrowAddr, request.sellToken.amount, request.sellToken.denom)
   abortTransactionUnless(err === null)
+
   // contructs the IBC data packet
   const packet = {
     type: SwapMessageType.TYPE_MSG_MAKE_SWAP,
